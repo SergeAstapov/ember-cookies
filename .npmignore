@@ -12,6 +12,7 @@
 .gitignore
 .eslintrc.js
 .watchmanconfig
+babel.config.js
 bower.json
 ember-cli-build.js
 testem.js
