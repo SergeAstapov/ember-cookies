@@ -3,36 +3,60 @@ name: CI
 on:
   push:
     branches:
+      - main
       - master
       - 'v*'
   pull_request: {}
   schedule:
     - cron:  '0 3 * * *' # daily, at 3am
 
+concurrency:
+   group: ci-${{ github.head_ref || github.ref }}
+   cancel-in-progress: true
+
 jobs:
-  lint:
-    name: Lint
+  test:
+    name: "Tests"
     runs-on: ubuntu-latest
-    timeout-minutes: 20
 
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
+      - name: Install Node
+        uses: actions/setup-node@v2
+        with:
+          node-version: 12.x
+          cache: yarn
+      - name: Install Dependencies
+        run: yarn install --frozen-lockfile
+      - name: Lint
+        run: yarn lint
+      - name: Run Tests
+        run: yarn test:ember
+
+  floating:
+    name: "Floating Dependencies"
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
       - uses: actions/setup-node@v2
         with:
           node-version: 12.x
           cache: yarn
+      - name: Install Dependencies
+        run: yarn install --no-lockfile
+      - name: Run Tests
+        run: yarn test:ember
 
-      - run: yarn install
-      - run: yarn lint:js
-
-  tests:
-    name: Tests
+  try-scenarios:
+    name: ${{ matrix.try-scenario }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    needs: 'test'
 
     strategy:
+      fail-fast: false
       matrix:
-        test-suite:
+        try-scenario:
           - ember-lts-3.4
           - ember-lts-3.8
           - ember-lts-3.12
@@ -43,39 +67,18 @@ jobs:
           - ember-release
           - ember-beta
           - ember-canary
+          - ember-classic
           - embroider-safe
           - embroider-optimized
-        include:
-           - test-suite: ember-canary
-             allow-failure: true
 
     steps:
-      - uses: actions/checkout@v1
-      - uses: actions/setup-node@v2
+      - uses: actions/checkout@v2
+      - name: Install Node
+        uses: actions/setup-node@v2
         with:
           node-version: 12.x
           cache: yarn
-
-      - run: yarn install
-
-      - name: tests
-        run: yarn test:one ${{ matrix.test-suite }}
-        continue-on-error: ${{matrix.allow-failure}}
-
-  extra-tests:
-    name: Tests (Floating Dependenies)
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-
-    steps:
-      - uses: actions/checkout@v1
-      - uses: actions/setup-node@v2
-        with:
-          node-version: 12.x
-          cache: yarn
-
-      - run: yarn install --no-lockfile
-
-      - name: tests
-        run: yarn test
-        continue-on-error: true
+      - name: Install Dependencies
+        run: yarn install --frozen-lockfile
+      - name: Run Tests
+        run: ./node_modules/.bin/ember try:one ${{ matrix.try-scenario }}
