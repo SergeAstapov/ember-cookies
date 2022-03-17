@@ -9,6 +9,10 @@ on:
   schedule:
     - cron:  '0 3 * * *' # daily, at 3am
 
+concurrency:
+  group: ci-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
     name: Lint
@@ -22,8 +26,13 @@ jobs:
           node-version: 12.x
           cache: yarn
 
-      - run: yarn install
-      - run: yarn lint:js
+      - run: yarn install --frozen-lockfile
+      - name: Lint Addon
+        run: yarn lint:js
+        working-directory: addon
+      - name: Lint Test App
+        run: yarn lint:js
+        working-directory: test-app
 
   tests:
     name: Tests
@@ -56,11 +65,12 @@ jobs:
           node-version: 12.x
           cache: yarn
 
-      - run: yarn install
+      - run: yarn install --frozen-lockfile
 
       - name: tests
         run: yarn test:one ${{ matrix.test-suite }}
         continue-on-error: ${{matrix.allow-failure}}
+        working-directory: test-app
 
   extra-tests:
     name: Tests (Floating Dependenies)
@@ -79,3 +89,4 @@ jobs:
       - name: tests
         run: yarn test
         continue-on-error: true
+        working-directory: test-app

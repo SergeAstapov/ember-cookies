@@ -1,8 +1,7 @@
-/* eslint-env node */
 'use strict';
 
 module.exports = {
-  name: require('./package').name,
+  name: require('./package.json').name,
 
   treeForAddonTestSupport(tree) {
     return this.preprocessJs(tree, '/', this.name, {
